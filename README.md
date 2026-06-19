@@ -74,9 +74,11 @@ Audix combines several connected subsystems:
 - PCB project: `electrical/pcbs-full-files/design-2.eprj`
 - LTspice simulation: `electrical/ltspice-simulation/ltspice-simulation.pdf`
 - Project archive: `archives/audix-mk1.rar`
+- Full Mission video: `assets/videos/full-mission.mp4`
 
 ## Simulation Media
 
+- `assets/videos/full-mission.mp4` - Full Mission
 - `assets/videos/midterm-simulation-1.mp4`
 - `assets/videos/midterm-simulation-2.mp4`
 - `assets/videos/midterm-simulation-3.mp4`
