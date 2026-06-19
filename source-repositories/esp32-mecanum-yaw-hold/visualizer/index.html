@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Audix Yaw Hold Bench</title>
+    <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+    <header class="topbar">
+        <div>
+            <p class="eyebrow">Audix ESP32 sandbox</p>
+            <h1>Yaw Hold Bench</h1>
+            <p>HTTP dashboard for IMU heading hold, straight-line moves, rotation, RPM validation, and PID tuning.</p>
+        </div>
+        <div class="status-row">
+            <span id="connectionBadge" class="badge warning">Connecting</span>
+            <span id="modeBadge" class="badge idle">mode: waiting</span>
+            <span id="endpointValue" class="socket">http://192.168.4.1</span>
+        </div>
+    </header>
+
+    <main class="shell">
+        <section class="panel safety-panel">
+            <button class="danger big-action" data-command="stop">STOP</button>
+            <button data-command="status">Status</button>
+            <button data-command="quiet">Quiet</button>
+            <button data-command="i2cscan">I2C Scan</button>
+            <button data-command="imu cal">IMU Cal</button>
+            <button data-command="imu zero">Zero Yaw</button>
+            <button data-command="imu reset">IMU Reset</button>
+            <button class="primary" data-command="yawhold zero">Set Zero + Hold</button>
+            <button data-command="encoders zero">Odom Zero</button>
+        </section>
+
+        <section class="grid three">
+            <article class="panel">
+                <p class="eyebrow">Odometry</p>
+                <div class="metric-grid">
+                    <div class="metric"><span>x cm</span><strong id="odomXCm">0.00</strong></div>
+                    <div class="metric"><span>y cm</span><strong id="odomYCm">0.00</strong></div>
+                    <div class="metric"><span>theta deg</span><strong id="odomYawDeg">0.00</strong></div>
+                    <div class="metric"><span>vx</span><strong id="odomVx">0.000</strong></div>
+                    <div class="metric"><span>vy</span><strong id="odomVy">0.000</strong></div>
+                    <div class="metric"><span>wz</span><strong id="odomWz">0.000</strong></div>
+                </div>
+            </article>
+
+            <article class="panel">
+                <p class="eyebrow">IMU</p>
+                <div class="metric-grid">
+                    <div class="metric"><span>health</span><strong id="imuHealth">unknown</strong></div>
+                    <div class="metric"><span>yaw deg</span><strong id="imuYawDeg">0.00</strong></div>
+                    <div class="metric"><span>gyro z</span><strong id="imuGyroZ">0.000</strong></div>
+                    <div class="metric"><span>accel x</span><strong id="imuAccelX">0.000</strong></div>
+                    <div class="metric"><span>accel y</span><strong id="imuAccelY">0.000</strong></div>
+                    <div class="metric"><span>accel z</span><strong id="imuAccelZ">0.000</strong></div>
+                </div>
+            </article>
+
+            <article class="panel">
+                <p class="eyebrow">Heading controller</p>
+                <div class="metric-grid">
+                    <div class="metric"><span>phase</span><strong id="headingPhase">idle</strong></div>
+                    <div class="metric"><span>settled</span><strong id="headingSettled">no</strong></div>
+                    <div class="metric"><span>target deg</span><strong id="headingTargetDeg">0.00</strong></div>
+                    <div class="metric"><span>error deg</span><strong id="headingErrorDeg">0.00</strong></div>
+                    <div class="metric"><span>cmd wz</span><strong id="headingCommandWz">0.000</strong></div>
+                    <div class="metric"><span>stable ms</span><strong id="headingStableMs">0</strong></div>
+                    <div class="metric"><span>motion</span><strong id="commandMotionAllowed">no</strong></div>
+                    <div class="metric"><span>cmd age ms</span><strong id="commandAgeMs">0</strong></div>
+                    <div class="metric"><span>actual wz</span><strong id="commandWzActual">0.000</strong></div>
+                </div>
+                <div id="yawPathWarning" class="path-warning hidden">Yaw command is active, but wheel targets are still zero.</div>
+            </article>
+        </section>
+
+        <section class="panel">
+            <div class="section-title">
+                <div>
+                    <p class="eyebrow">Position + IMU heading control (4 wheels)</p>
+                    <h2>Straight-line and yaw-hold tests</h2>
+                </div>
+                <span id="holdBadge" class="badge">hold: off</span>
+            </div>
+            <div class="test-grid">
+                <button class="primary" data-command="yawhold zero">Set Zero + Hold</button>
+                <button data-command="yawhold on">Hold Current Heading</button>
+                <button data-command="yawhold off">Release Hold</button>
+                <label>Distance cm
+                    <input id="distanceCm" type="number" value="20" step="1">
+                </label>
+                <button class="primary" id="forwardButton">Forward</button>
+                <button class="primary" id="backwardButton">Backward</button>
+                <label>Angle deg
+                    <input id="angleDeg" type="number" value="90" step="5">
+                </label>
+                <button class="primary" id="rotateCcwButton">Rotate CCW</button>
+                <button class="primary" id="rotateCwButton">Rotate CW</button>
+            </div>
+        </section>
+
+        <section class="panel">
+            <p class="eyebrow">Wheels</p>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Wheel</th>
+                            <th>Count</th>
+                            <th>Target RPM</th>
+                            <th>Measured RPM</th>
+                            <th>Measured rad/s</th>
+                            <th>PWM</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr><td>FL</td><td id="flCount">0</td><td id="flTargetRpm">0.000</td><td id="flRpm">0.000</td><td id="flRadS">0.000</td><td id="flPwm">0.000</td></tr>
+                        <tr><td>FR</td><td id="frCount">0</td><td id="frTargetRpm">0.000</td><td id="frRpm">0.000</td><td id="frRadS">0.000</td><td id="frPwm">0.000</td></tr>
+                        <tr><td>RL</td><td id="rlCount">0</td><td id="rlTargetRpm">0.000</td><td id="rlRpm">0.000</td><td id="rlRadS">0.000</td><td id="rlPwm">0.000</td></tr>
+                        <tr><td>RR</td><td id="rrCount">0</td><td id="rrTargetRpm">0.000</td><td id="rrRpm">0.000</td><td id="rrRadS">0.000</td><td id="rrPwm">0.000</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <section class="grid two">
+            <article class="panel">
+                <p class="eyebrow">RPM validation</p>
+                <h2>Wheel speed PID smoke test</h2>
+                <div class="form-grid">
+                    <label>Wheel
+                        <select id="rpmWheel">
+                            <option value="all">All</option>
+                            <option value="fl">FL</option>
+                            <option value="fr">FR</option>
+                            <option value="rl">RL</option>
+                            <option value="rr">RR</option>
+                        </select>
+                    </label>
+                    <label>RPM
+                        <input id="rpmValue" type="number" value="60" step="5">
+                    </label>
+                    <label>Duration s
+                        <input id="rpmDuration" type="number" value="2.0" min="0.1" step="0.1">
+                    </label>
+                </div>
+                <div class="button-row">
+                    <button class="primary" id="sendRpmButton">Run RPM</button>
+                    <button id="reverseRpmButton">Reverse RPM</button>
+                    <button data-command="encoders once">Encoder Once</button>
+                </div>
+            </article>
+
+            <article class="panel">
+                <div class="section-title">
+                    <div>
+                        <p class="eyebrow">Runtime PID tuning</p>
+                        <h2>Wheel and yaw only</h2>
+                    </div>
+                    <button data-command="pid show">PID Show</button>
+                </div>
+                <div id="pidRows" class="pid-grid"></div>
+            </article>
+        </section>
+
+        <section class="panel">
+            <p class="eyebrow">Copy-ready test commands</p>
+            <div class="command-block-grid">
+                <article class="command-card">
+                    <div class="section-title compact">
+                        <h3>Clean Zero-Hold Setup</h3>
+                        <button data-copy-target="setupCommands">Copy</button>
+                    </div>
+                    <pre id="setupCommands" class="command-text">stop
+yawhold off
+quiet
+pid wheel 1.20 0.80 0.05
+pid yaw 2.00 0.00 0.06
+imu cal
+yawhold zero</pre>
+                </article>
+                <article class="command-card">
+                    <div class="section-title compact">
+                        <h3>Stronger Correction</h3>
+                        <button data-copy-target="strongCommands">Copy</button>
+                    </div>
+                    <pre id="strongCommands" class="command-text">pid yaw 3.00 0.00 0.08
+yawhold zero</pre>
+                </article>
+                <article class="command-card">
+                    <div class="section-title compact">
+                        <h3>Softer Correction</h3>
+                        <button data-copy-target="softCommands">Copy</button>
+                    </div>
+                    <pre id="softCommands" class="command-text">pid yaw 1.50 0.00 0.08
+yawhold zero</pre>
+                </article>
+                <article class="command-card">
+                    <div class="section-title compact">
+                        <h3>Wrong Way Stop</h3>
+                        <button data-copy-target="stopCommands">Copy</button>
+                    </div>
+                    <pre id="stopCommands" class="command-text">stop
+yawhold off</pre>
+                </article>
+            </div>
+        </section>
+
+        <section class="panel">
+            <div class="section-title">
+                <div>
+                    <p class="eyebrow">Raw log</p>
+                    <h2>Manual command input</h2>
+                </div>
+                <div class="button-row">
+                    <button id="clearLogButton">Clear</button>
+                    <button id="copyLogButton">Copy</button>
+                </div>
+            </div>
+            <form id="commandForm" class="command-form">
+                <input id="commandInput" type="text" placeholder="Manual command, example: yawhold on">
+                <button class="primary" type="submit">Send</button>
+            </form>
+            <div id="terminalLog" class="serial-log"></div>
+        </section>
+    </main>
+
+    <script type="module" src="./app.js"></script>
+</body>
+</html>

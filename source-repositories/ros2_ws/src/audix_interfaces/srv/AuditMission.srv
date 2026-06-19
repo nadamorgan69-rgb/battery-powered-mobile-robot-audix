@@ -1,0 +1,8 @@
+int32[] shelves
+bool level_1
+bool level_2
+string[] shelf_ids
+int32[] expected_counts
+---
+bool accepted
+string message

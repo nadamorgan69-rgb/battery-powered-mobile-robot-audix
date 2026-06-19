@@ -1,0 +1,14 @@
+{
+  "folders": [
+    {
+      "path": "."
+    }
+  ],
+  "settings": {
+    "C_Cpp.default.configurationProvider": "platformio.platformio-ide",
+    "files.exclude": {
+      "**/.pio": true,
+      "**/__pycache__": true
+    }
+  }
+}

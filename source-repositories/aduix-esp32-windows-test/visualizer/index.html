@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Audix ESP32 Base Bench</title>
+    <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+    <header class="topbar">
+        <div>
+            <p class="eyebrow">Audix ESP32 sandbox</p>
+            <h1>Stable Base Bench</h1>
+            <p>HTTP-only GUI for movement, PWM/RPM, IMU, odometry, and PID tuning.</p>
+        </div>
+        <div class="status-row">
+            <span id="connectionBadge" class="badge warning">Connecting</span>
+            <span id="modeBadge" class="badge idle">mode: waiting</span>
+            <span id="endpointValue" class="socket">http://192.168.4.1</span>
+        </div>
+    </header>
+
+    <main class="shell">
+        <section class="panel safety-panel">
+            <button class="danger big-action" data-command="stop">STOP</button>
+            <button data-command="enable on">Enable</button>
+            <button data-command="enable off">Disable</button>
+            <button data-command="status">Status</button>
+            <button data-command="quiet">Quiet</button>
+            <button data-command="encoders zero">Encoder Zero</button>
+            <button data-command="encoders on">Encoders On</button>
+            <button data-command="imu on">IMU On</button>
+        </section>
+
+        <section class="grid two">
+            <article class="panel">
+                <p class="eyebrow">Live odometry</p>
+                <h2>Position and movement</h2>
+                <div class="metric-grid">
+                    <div class="metric"><span>x cm</span><strong id="odomXCm">0.00</strong></div>
+                    <div class="metric"><span>y cm</span><strong id="odomYCm">0.00</strong></div>
+                    <div class="metric"><span>yaw deg</span><strong id="odomYawDeg">0.00</strong></div>
+                    <div class="metric"><span>vx</span><strong id="odomVx">0.000</strong></div>
+                    <div class="metric"><span>vy</span><strong id="odomVy">0.000</strong></div>
+                    <div class="metric"><span>wz</span><strong id="odomWz">0.000</strong></div>
+                </div>
+            </article>
+
+            <article class="panel">
+                <p class="eyebrow">Live IMU</p>
+                <h2>Yaw and motion sensor</h2>
+                <div class="metric-grid">
+                    <div class="metric"><span>health</span><strong id="imuHealth">unknown</strong></div>
+                    <div class="metric"><span>yaw deg</span><strong id="imuYawDeg">0.00</strong></div>
+                    <div class="metric"><span>gyro z</span><strong id="imuGyroZ">0.000</strong></div>
+                    <div class="metric"><span>accel x</span><strong id="imuAccelX">0.000</strong></div>
+                    <div class="metric"><span>accel y</span><strong id="imuAccelY">0.000</strong></div>
+                    <div class="metric"><span>accel z</span><strong id="imuAccelZ">0.000</strong></div>
+                </div>
+                <div class="button-row">
+                    <button data-command="i2cscan">I2C Scan</button>
+                    <button data-command="imu on">IMU On</button>
+                    <button data-command="imu off">IMU Off</button>
+                </div>
+            </article>
+        </section>
+
+        <section class="panel">
+            <div class="section-title">
+                <div>
+                    <p class="eyebrow">Movement</p>
+                    <h2>Forward, backward, and rotation</h2>
+                    <p>Forward/backward use encoder odometry and IMU yaw hold. Rotation uses yaw/Z PID.</p>
+                </div>
+            </div>
+            <div class="control-grid">
+                <label>Distance cm
+                    <input id="distanceCm" type="number" value="20" step="1">
+                </label>
+                <button class="primary" id="forwardButton">Forward</button>
+                <button class="primary" id="backwardButton">Backward</button>
+                <label>Angle degrees
+                    <input id="angleDeg" type="number" value="90" step="5">
+                </label>
+                <button class="primary" id="rotateCcwButton">Rotate CCW</button>
+                <button class="primary" id="rotateCwButton">Rotate CW</button>
+            </div>
+        </section>
+
+        <section class="panel">
+            <p class="eyebrow">Wheel feedback</p>
+            <h2>Encoders, RPM, and PWM</h2>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Wheel</th>
+                            <th>Count</th>
+                            <th>RPM</th>
+                            <th>Target RPM</th>
+                            <th>rad/s</th>
+                            <th>PWM</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr><td>FL</td><td id="flCount">0</td><td id="flRpm">0.000</td><td id="flTargetRpm">0.000</td><td id="flRadS">0.000</td><td id="flPwm">0.000</td></tr>
+                        <tr><td>FR</td><td id="frCount">0</td><td id="frRpm">0.000</td><td id="frTargetRpm">0.000</td><td id="frRadS">0.000</td><td id="frPwm">0.000</td></tr>
+                        <tr><td>RL</td><td id="rlCount">0</td><td id="rlRpm">0.000</td><td id="rlTargetRpm">0.000</td><td id="rlRadS">0.000</td><td id="rlPwm">0.000</td></tr>
+                        <tr><td>RR</td><td id="rrCount">0</td><td id="rrRpm">0.000</td><td id="rrTargetRpm">0.000</td><td id="rrRadS">0.000</td><td id="rrPwm">0.000</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <section class="grid two">
+            <article class="panel">
+                <p class="eyebrow">Raw PWM</p>
+                <h2>Open-loop motor power</h2>
+                <div class="form-grid">
+                    <label>Wheel
+                        <select id="pwmWheel">
+                            <option value="all">All</option>
+                            <option value="fl">FL</option>
+                            <option value="fr">FR</option>
+                            <option value="rl">RL</option>
+                            <option value="rr">RR</option>
+                        </select>
+                    </label>
+                    <label>PWM
+                        <input id="pwmValue" type="number" value="0.30" min="-1" max="1" step="0.05">
+                    </label>
+                    <label>Duration s
+                        <input id="pwmDuration" type="number" value="1.0" min="0.1" step="0.1">
+                    </label>
+                </div>
+                <div class="button-row">
+                    <button class="primary" id="sendPwmButton">Send PWM</button>
+                    <button id="reversePwmButton">Reverse PWM</button>
+                    <button id="maxPwmButton">Max PWM</button>
+                </div>
+            </article>
+
+            <article class="panel">
+                <p class="eyebrow">Closed-loop RPM</p>
+                <h2>Wheel speed PID</h2>
+                <div class="form-grid">
+                    <label>Wheel
+                        <select id="rpmWheel">
+                            <option value="all">All</option>
+                            <option value="fl">FL</option>
+                            <option value="fr">FR</option>
+                            <option value="rl">RL</option>
+                            <option value="rr">RR</option>
+                        </select>
+                    </label>
+                    <label>RPM
+                        <input id="rpmValue" type="number" value="60" step="5">
+                    </label>
+                    <label>Duration s
+                        <input id="rpmDuration" type="number" value="2.0" min="0.1" step="0.1">
+                    </label>
+                </div>
+                <div class="button-row">
+                    <button class="primary" id="sendRpmButton">Send RPM</button>
+                    <button id="reverseRpmButton">Reverse RPM</button>
+                </div>
+            </article>
+        </section>
+
+        <section class="panel">
+            <div class="section-title">
+                <div>
+                    <p class="eyebrow">Runtime PID tuning</p>
+                    <h2>Kp, Ki, Kd controls</h2>
+                    <p>Wheel tunes RPM. X tunes forward/backward distance. Y is prepared for strafe. Yaw/Z tunes rotation and straight-line heading hold.</p>
+                </div>
+                <button data-command="pid show">PID Show</button>
+            </div>
+            <div id="pidRows" class="pid-grid"></div>
+        </section>
+
+        <section class="panel">
+            <div class="section-title">
+                <div>
+                    <p class="eyebrow">Raw log</p>
+                    <h2>Command feedback</h2>
+                </div>
+                <div class="button-row">
+                    <button id="clearLogButton">Clear</button>
+                    <button id="copyLogButton">Copy</button>
+                </div>
+            </div>
+            <form id="commandForm" class="command-form">
+                <input id="commandInput" type="text" placeholder="Manual command, example: pid show">
+                <button class="primary" type="submit">Send</button>
+            </form>
+            <div id="terminalLog" class="serial-log"></div>
+        </section>
+    </main>
+
+    <script type="module" src="./app.js"></script>
+</body>
+</html>
