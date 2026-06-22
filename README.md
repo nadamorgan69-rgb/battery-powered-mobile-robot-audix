@@ -69,6 +69,9 @@ Audix combines several connected subsystems:
 ## Main Project Files
 
 - Final documentation: `documentation/audix-final-documentation.pdf`
+- User manual: `documentation/AUDIX_User_Manual_landscape_no_margin/AUDIX_User_Manual_landscape_no_margin.pdf`
+- Final poster: `documentation/Final Poster (1)/Final Poster (1).pdf`
+- Team's card: `documentation/Audix ( Team's Card)/Audix ( Team's Card).pdf`
 - Battery sizing: `electrical/battery-sizing/battery-sizing.pdf`
 - Wiring schematic: `electrical/wiring-schematic/fritzing-version-1-stepper-ir.fz`
 - PCB project: `electrical/pcbs-full-files/design-2.eprj`
